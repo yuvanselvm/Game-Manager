@@ -1,19 +1,69 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QHBoxLayout, QLabel
-from PySide6.QtWidgets import QFileDialog
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QHBoxLayout
+from PySide6.QtWidgets import QFileDialog, QLineEdit
 from PySide6.QtGui import QCursor
 from PySide6.QtCore import QUrl
 
 
-class HomeWidget(QWidget):
+class GameEntry(QWidget):
     def __init__(self):
-        """ Main Widgets Class """
+        """ This class helps to add new game entry """
         super().__init__()
-        self.setupScr()
+        self.setupWindow()
         self.setupLayout()
         self.setupWidgets()
 
-    def setupScr(self):
-        """ Screen Setup """
+    def setupWindow(self):
+        """ Window Setup """
+        self.setWindowTitle('Add a Game')
+
+        scr = self.screen().size()
+        # calculating the position of the window 
+        # centering it - dividing the screen height and width by some value(find by just experimenting)
+        window_pos = (scr.width() / 2.7, scr.height() / 2.5)
+
+        HEIGHT = 210
+        WIDTH = 320
+
+        self.setGeometry(*window_pos, WIDTH, HEIGHT)
+
+    def setupLayout(self):
+        self.vlayout = QVBoxLayout()
+        self.setLayout(self.vlayout)
+
+    def setupWidgets(self):
+        # Name - Widget
+        game_name = QLineEdit()
+        game_name.setPlaceholderText("Game Name  *required")
+        # Path - Widget, Layout 
+        path_widget = QWidget()
+        path_widget_layout = QHBoxLayout()
+        path_widget.setLayout(path_widget_layout)
+
+        game_path = QLineEdit()
+        game_path.setPlaceholderText("Enter a valid Path  *required")
+        game_path_browse = QPushButton("Browse")
+    
+        path_widget_layout.addWidget(game_path)
+        path_widget_layout.addWidget(game_path_browse)
+
+        # Game Add Btn
+        add_btn = QPushButton('Add Game')
+
+        self.vlayout.addWidget(game_name)
+        self.vlayout.addWidget(path_widget)
+        self.vlayout.addWidget(add_btn)
+
+
+class HomeWidget(QWidget):
+    def __init__(self):
+        """ Home Widget Class """
+        super().__init__()
+        self.setupWindow()
+        self.setupLayout()
+        self.setupWidgets()
+
+    def setupWindow(self):
+        """ Window Setup """
         self.setWindowTitle('Game Manager')
         scr = self.screen().size()
 
@@ -46,17 +96,17 @@ class HomeWidget(QWidget):
         # Cursors
         pointing_cursor = QCursor().shape().PointingHandCursor
 
-        # Game Btn - Widget, Connectors
+        # Add Game Btn - Widget, Connectors
         add_game_btn = QPushButton('Add Game')
         add_game_btn.setCursor(pointing_cursor)
-        add_game_btn.clicked.connect(self.add_game_entry)
+        add_game_btn.clicked.connect(self.new_game_entry)
 
         # Options Btn - Widget
-        options_btn = QPushButton(':')
+        options_btn = QPushButton('Options')
         options_btn.setCursor(pointing_cursor)
 
         # Play Btn - Widget
-        play_btn = QPushButton('|>')
+        play_btn = QPushButton('Play')
         play_btn.setCursor(pointing_cursor)
 
         # Add Widgets to btns_layout
@@ -68,9 +118,7 @@ class HomeWidget(QWidget):
         self.vlayout.addWidget(game_entries, 1)
         self.vlayout.addWidget(btns, 0)
 
-    def add_game_entry(self):
-        """ Opens the game-executable file selector dialog """
-        selected_file_url: QUrl = QFileDialog.getOpenFileUrl(filter="Executables (*exe)")[0]
-        selected_file_name = selected_file_url.fileName()
-        self.game_entries_layout.addWidget(QLabel(selected_file_name))
-
+    def new_game_entry(self):
+        """ Shows a game entry window to add a game entry """
+        self.game_entry_window = GameEntry()
+        self.game_entry_window.show()
