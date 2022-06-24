@@ -1,63 +1,13 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QHBoxLayout
-from PySide6.QtWidgets import QFileDialog, QLineEdit
 from PySide6.QtGui import QCursor
-from PySide6.QtCore import QUrl
-
-
-class GameEntry(QWidget):
-    def __init__(self):
-        """ This class helps to add new game entry """
-        super().__init__()
-        self.setupWindow()
-        self.setupLayout()
-        self.setupWidgets()
-
-    def setupWindow(self):
-        """ Window Setup """
-        self.setWindowTitle('Add a Game')
-
-        scr = self.screen().size()
-        # calculating the position of the window 
-        # centering it - dividing the screen height and width by some value(find by just experimenting)
-        window_pos = (scr.width() / 2.7, scr.height() / 2.5)
-
-        HEIGHT = 210
-        WIDTH = 320
-
-        self.setGeometry(*window_pos, WIDTH, HEIGHT)
-
-    def setupLayout(self):
-        self.vlayout = QVBoxLayout()
-        self.setLayout(self.vlayout)
-
-    def setupWidgets(self):
-        # Name - Widget
-        game_name = QLineEdit()
-        game_name.setPlaceholderText("Game Name  *required")
-        # Path - Widget, Layout 
-        path_widget = QWidget()
-        path_widget_layout = QHBoxLayout()
-        path_widget.setLayout(path_widget_layout)
-
-        game_path = QLineEdit()
-        game_path.setPlaceholderText("Enter a valid Path  *required")
-        game_path_browse = QPushButton("Browse")
-    
-        path_widget_layout.addWidget(game_path)
-        path_widget_layout.addWidget(game_path_browse)
-
-        # Game Add Btn
-        add_btn = QPushButton('Add Game')
-
-        self.vlayout.addWidget(game_name)
-        self.vlayout.addWidget(path_widget)
-        self.vlayout.addWidget(add_btn)
+from gameentry import GameEntry
 
 
 class HomeWidget(QWidget):
     def __init__(self):
         """ Home Widget Class """
         super().__init__()
+        self.game_entry_window = None # this window will be set when add_game_btn is clicked
         self.setupWindow()
         self.setupLayout()
         self.setupWidgets()
@@ -77,7 +27,7 @@ class HomeWidget(QWidget):
         self.setGeometry(*window_pos, HEIGHT, WIDTH)
 
     def setupLayout(self):
-        """ Initilize a Vertical Layout """
+        """ Initialize a Vertical Layout """
         self.vlayout = QVBoxLayout()
         self.setLayout(self.vlayout)
 
@@ -120,5 +70,11 @@ class HomeWidget(QWidget):
 
     def new_game_entry(self):
         """ Shows a game entry window to add a game entry """
-        self.game_entry_window = GameEntry()
+        self.game_entry_window = GameEntry(hw=self)
         self.game_entry_window.show()
+        self.setEnabled(False)  # disabling the home widget
+
+    def closeEvent(self, event):
+        if self.game_entry_window:
+            self.game_entry_window.close()
+        event.accept()
