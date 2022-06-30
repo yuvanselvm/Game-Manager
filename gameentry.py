@@ -1,9 +1,10 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QHBoxLayout
-from PySide6.QtWidgets import QFileDialog, QLineEdit, QLabel
+from PySide6.QtWidgets import QWidget, QDialog, QVBoxLayout, QPushButton, QHBoxLayout
+from PySide6.QtWidgets import QFileDialog, QLineEdit
 from PySide6.QtCore import QUrl
+import os.path as op , json
 
 
-class GameEntry(QWidget):
+class GameEntry(QDialog):
     def __init__(self, hw):
         """ This class helps to add new game entry """
         super().__init__()
@@ -17,7 +18,7 @@ class GameEntry(QWidget):
         self.setWindowTitle('Add a Game')
 
         scr = self.screen().size()
-        # calculating the position of the window 
+        # calculating the position of the window
         # centering it - dividing the screen height and width by some value(find by just experimenting)
         window_pos = (scr.width() / 2.7, scr.height() / 2.5)
 
@@ -34,13 +35,13 @@ class GameEntry(QWidget):
         # Name - Widget
         self.game_name = QLineEdit()
         self.game_name.setPlaceholderText("Game Name  *required")
-        # Path - Widget, Layout 
+        # Path - Widget, Layout
         path_widget = QWidget()
         path_widget_layout = QHBoxLayout()
         path_widget.setLayout(path_widget_layout)
 
         self.game_path = QLineEdit()
-        self.game_path.setPlaceholderText("Enter a valid Path  *required")
+        self.game_path.setPlaceholderText("Path to a Executable *required")
 
         browse_btn = QPushButton("Browse")
         browse_btn.clicked.connect(self.game_select_dialog)
@@ -57,33 +58,46 @@ class GameEntry(QWidget):
         self.vlayout.addWidget(add_btn)
 
     def game_select_dialog(self):
-        game_file_url: QUrl = QFileDialog.getOpenFileUrl(filter="Game Executable (*exe)")[0]
-        game_file_url = game_file_url.path()[1:] # [1:] is used to remove the first character ('/') in the str
-        self.game_path.setText(game_file_url) 
+        game_file_url: QUrl = QFileDialog.getOpenFileUrl(
+            filter="Game Executable (*exe)")[0]
+        # [1:] is used to remove the first character ('/') in the str
+        game_file_url = game_file_url.path()[1:]
+        self.game_path.setText(game_file_url)
 
     def add_game(self):
         game_name = self.game_name.text().strip()
-        self.game_name.setText(game_name) # removing extra spaces to avoid confusion
         game_path = self.game_path.text().strip()
-        self.game_path.setText(game_path)   # removing extra spaces to avoid confusion
 
-        if game_name != "" and game_path != "": # .strip to remove spaces
-            game_entry = QWidget()
-            game_entry_layout = QHBoxLayout()
-            game_entry.setLayout(game_entry_layout)
-            game_entry_layout.addWidget(QLabel(f"Name: {game_name}"))
-            game_entry_layout.addWidget(QLabel(f"Path: {game_path}"))
+        if game_name != "" and op.isfile(game_path):
+            db_name = 'gameentries.json'
+            curr_dir = op.abspath(op.curdir)
+            db_path = op.join(curr_dir, db_name)
 
-            self.hw.game_entries_layout.addWidget(game_entry)
+            with open(db_path, 'r') as db:
+                game_entries = "".join(line for line in db.readlines())
+
+            with open(db_path, "w") as db:
+                game_entries: dict = json.loads(game_entries)
+                game_entries_list: list = game_entries['game_entries']
+                game_entry = {
+                    'game_name': f"{game_name}",
+                    'game_path': f"{game_path}"
+                }
+                game_entries_list.append(game_entry)
+                game_entries["game_entries"] = game_entries_list
+                game_entries = json.dumps(game_entries)
+                db.write(game_entries)
+
+            self.hw.load_entries()
             self.close()
 
         else:
-            # changing the placholder value if the fields are empty
-            self.game_name.setPlaceholderText("!! REQUIRED !!") if game_name == "" else None
-            self.game_path.setPlaceholderText("!! REQUIRED !!") if game_path == "" else None
-
-
-
+            # resetting the field
+            self.game_name.setText(
+                "") if game_name == "" else None
+            # resetting the field if the provided executable path is not valid
+            self.game_path.setText(
+                "") if not op.isfile(game_path) else None
 
     def closeEvent(self, event):
         self.hw.setEnabled(True)  # enabling home widget
