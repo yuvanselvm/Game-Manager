@@ -1,16 +1,22 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QHBoxLayout, QListWidget, QListWidgetItem
-from PySide6.QtGui import QCursor
+from pickle import NONE
+from typing import Type
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QHBoxLayout, QListWidget, QListWidgetItem, QLabel
+from PySide6.QtGui import QCursor, Qt
+from PySide6.QtCore import QSize
+
 from gameentry import GameEntry
-import os.path as op
-import json
-import subprocess as sp
+from gameentryoptions import GameEntryOptions
+
+import os.path as op, json, subprocess as sp
 
 
 class HomeWidget(QWidget):
     def __init__(self):
         """ Home Widget Class """
         super().__init__()
-        self.game_entry_window = None # it is declared here bcoz to close game_entry_window when app exits
+        self.setWindowFlags()
+        self.ge_window = None # it is declared here bcoz to close game_entry_window when app exits
+        self.ge_options = None # it is declared here bcoz to close game_entry_window when app exits
         self.setupWindow()
         self.setupLayout()
         self.setupWidgets()
@@ -19,7 +25,11 @@ class HomeWidget(QWidget):
     def setupWindow(self):
         """ Window Setup """
         self.setWindowTitle('Game Manager')
-        self.setStyleSheet(''.join(line for line in open('./style.qss', 'r')))
+
+        with open('./style_homewidget.qss', 'r') as styles:
+            styles = "".join(line for line in styles.readlines())
+        self.setStyleSheet(styles)
+
         scr = self.screen().size()
 
         # calculating window position
@@ -38,13 +48,20 @@ class HomeWidget(QWidget):
 
     def setupWidgets(self):
         """ Makes and Adds Widgets to the vlayout """
-        # Vertical layout for adding game entries
-        self.game_entries = QListWidget()
+        # Default widget for showing game entries it will be replaced by a QListWidget
+        self.game_entries = QWidget()
+        vlayout = QVBoxLayout()
+        self.game_entries.setLayout(vlayout)
+
+        default_game_entry = QLabel('No Game Entries are present. Please ADD one.')
+        default_game_entry.setAlignment(Qt.AlignCenter)
+        vlayout.addWidget(default_game_entry)
+
 
         # Horizontal layout for adding btns
-        btns = QWidget()
+        self.btns = QWidget()
         btns_layout = QHBoxLayout()
-        btns.setLayout(btns_layout)
+        self.btns.setLayout(btns_layout)
 
         # Cursors
         pointing_cursor = QCursor().shape().PointingHandCursor
@@ -57,34 +74,41 @@ class HomeWidget(QWidget):
         add_game_btn.setFixedSize(150, 60)
 
         # Options Btn - Widget
-        options_btn = QPushButton(':')
-        options_btn.setObjectName('bordered')
-        options_btn.setCursor(pointing_cursor)
-        options_btn.setFixedSize(40,60)
+        self.options_btn = QPushButton(':')
+        self.options_btn.setObjectName('bordered')
+        self.options_btn.setCursor(pointing_cursor)
+        self.options_btn.clicked.connect(self.game_entry_options)
+        self.options_btn.setFixedSize(40,60)
+        self.options_btn.setEnabled(False)
 
         # Play Btn - Widget
-        play_btn = QPushButton('>')
-        play_btn.setObjectName('defaultBtn')
-        play_btn.setCursor(pointing_cursor)
-        play_btn.clicked.connect(self.run_game)
-        play_btn.setFixedSize(65, 70)
+        self.play_btn = QPushButton('Play')
+        self.play_btn.setObjectName('defaultBtn')
+        self.play_btn.setCursor(pointing_cursor)
+        self.play_btn.clicked.connect(self.run_game)
+        self.play_btn.setFixedSize(65, 70)
+        self.play_btn.setEnabled(False)
 
         # Add Widgets to btns_layout
         btns_layout.addWidget(add_game_btn)
         btns_layout.addStretch(25)
-        btns_layout.addWidget(options_btn)
+        btns_layout.addWidget(self.options_btn)
         btns_layout.addStretch(1)
-        btns_layout.addWidget(play_btn)
+        btns_layout.addWidget(self.play_btn)
 
         # Add Widgets to vlayout
         self.vlayout.addWidget(self.game_entries, 1)
-        self.vlayout.addWidget(btns, 0)
+        self.vlayout.addWidget(self.btns, 0)
+
+    def reload_widgets(self, widget):
+        self.vlayout.removeWidget(self.game_entries)
+        self.vlayout.removeWidget(self.btns)
+        self.game_entries = widget
+        self.vlayout.addWidget(self.game_entries, 1)
+        self.vlayout.addWidget(self.btns, 0)
 
     def load_entries(self):
         """ Reads and Add game_entries from json file """
-
-        # remove previous entries
-        self.game_entries.clear()
 
         db_name = 'gameentries.json'
         curr_dir = op.abspath(op.curdir)
@@ -92,39 +116,72 @@ class HomeWidget(QWidget):
 
         # creating db if not present
         if not op.exists(db_path):
+            default_stucture = {"game_entries": []}
             with open(db_path, 'w') as db:
-                default_stucture = {"game_entries": []}
                 default_stucture = json.dumps(default_stucture)
                 db.write(default_stucture)
+        else:
+            with open(db_path, 'r') as db:
+                game_entries: str = "".join(line for line in db.readlines())
+                game_entries: dict = json.loads(game_entries)
+                game_entries_list = game_entries['game_entries']
 
-        with open(db_path, 'r') as db:
-            game_entries: str = "".join(line for line in db.readlines())
-            game_entries: dict = json.loads(game_entries)
-            self.game_entries_list = game_entries['game_entries']
+            if len(game_entries_list) > 0:
+                if type(self.game_entries) != QListWidget:
+                    self.reload_widgets(widget=QListWidget())
+                    self.play_btn.setEnabled(True)
+                    self.options_btn.setEnabled(True)
+                else: 
+                    self.game_entries.clear()
+                    
+                for game_entry in game_entries_list:
+                    game_name = game_entry['game_name']
+                    game_path = game_entry['game_path']
+                    game_entry = QListWidgetItem(game_name)
+                    game_entry.setTextAlignment(Qt.AlignCenter)
+                    game_entry.setData(1, game_path)
+                    self.game_entries.addItem(game_entry)
 
-        for game_entry in self.game_entries_list:
-            game_name = game_entry['game_name']
-            game_path = game_entry['game_path']
-            game_entry: QListWidgetItem = QListWidgetItem(f"{game_name[:60]}")
-            game_entry.setData(1, game_path)
-            self.game_entries.addItem(game_entry)
+            elif type(self.game_entries) != QWidget:
+                game_entries = QWidget()
+                vlayout = QVBoxLayout()
+                game_entries.setLayout(vlayout)
+
+                default_game_entry = QLabel('No Game Entries are present. Please ADD one.')
+                default_game_entry.setAlignment(Qt.AlignCenter)
+                vlayout.addWidget(default_game_entry)
+                
+                self.reload_widgets(widget=game_entries)
+                self.play_btn.setEnabled(False)
+                self.options_btn.setEnabled(False)
+                
 
     def new_game_entry(self):
         """ Shows a game entry window to add a game entry """
-        self.game_entry_window = GameEntry(hw=self)
-        self.game_entry_window.show()
+        self.ge_window = GameEntry(hw=self)
+        self.ge_window.show()
         self.setEnabled(False)  # disabling the home widget
 
+    def game_entry_options(self):
+        """This functions show the game entry options"""
+        # ge - game entry
+        if len(self.game_entries.selectedItems()) > 0:
+            self.ge_options = GameEntryOptions(hw=self)
+            self.ge_options.show()
+            self.setEnabled(False)
+
     def run_game(self):
+        """ This function runs the selected game with subprocess module and closes this application (optionally)"""
         # selected_game - sg
-        sg: QListWidgetItem = self.game_entries.selectedItems()[0]
-        sg_path = sg.data(1)
-        sg_folder_path = op.split(sg_path)[0]
-        # subprocess module - sp
-        sp.Popen(args='', executable=sg_path, cwd=sg_folder_path)
-        self.close()
+        if len(self.game_entries.selectedItems()) > 0:
+            sg: QListWidgetItem = self.game_entries.selectedItems()[0]
+            sg_path = sg.data(1) # data 1 has the game path
+            sg_folder_path = op.split(sg_path)[0] 
+            # subprocess module - sp
+            sp.Popen(args='', executable=sg_path, cwd=sg_folder_path)
+            self.close()
 
     def closeEvent(self, event):
-        if self.game_entry_window:
-            self.game_entry_window.close()
+        self.ge_options.close() if self.ge_options else None
+        self.ge_window.close() if self.ge_window else None
         event.accept()
